@@ -41,9 +41,9 @@ const DBInsertUser = (userId, apiKey, apiSecret) =>
         .then(() => database.close())
         .catch((err) => {
           database.close();
-          console.log(err);
+          Promise.reject(err);
         }))
-    .catch(err => console.log(err));
+    .catch(err => Promise.reject(err));
 
 // Remove user from DB by UserId (drop user keys - allowing him to register new keys)
 const DBRemoveUser = userId =>
@@ -54,9 +54,9 @@ const DBRemoveUser = userId =>
         .then(() => database.close())
         .catch((err) => {
           database.close();
-          console.log(err);
+          Promise.reject(err);
         }))
-    .catch(err => console.log(err));
+    .catch(err => Promise.reject(err));
 
 // Return user keys or false if they weren't provided
 const DBFindUser = userId =>
@@ -71,9 +71,9 @@ const DBFindUser = userId =>
         })
         .catch((err) => {
           database.close();
-          console.log(err);
+          Promise.reject(err);
         }))
-    .catch(err => console.log(err));
+    .catch(err => Promise.reject(err));
 
 // Show how many users provided their keys
 const DBUsersCount = () =>
@@ -87,9 +87,9 @@ const DBUsersCount = () =>
         })
         .catch((err) => {
           database.close();
-          console.log(err);
+          Promise.reject(err);
         }))
-    .catch(err => console.log(err));
+    .catch(err => Promise.reject(err));
 
 //
 // ---------- LOGIC METHODS ----------
@@ -110,232 +110,244 @@ const registerUser = (userId, apiKey, apiSecret) => {
       }
       // If user isn't in DB - insert his keys into DB and return welcome msg
       return DBInsertUser(userId, apiKey, apiSecret)
-        .then(() => 'Your keys accepted!\n\n/balance now available for you, enjoy');
-    });
+        .then(() => 'Your keys accepted!\n\n/balance now available for you, enjoy')
+        .catch(err => Promise.reject(err));
+    })
+    .catch(err => Promise.reject(err));
 };
 
 // Send private keys to user
 const showKeys = userId =>
   DBFindUser(userId)
-    .then(user => {
-      if (user.length == 1)
-        return({
+    .then((user) => {
+      if (user.length === 1) {
+        return {
           apiKey: user[0].apiKey,
-          apiSecret: user[0].apiSecret
-        })
-      else
-        return({})
+          apiSecret: user[0].apiSecret,
+        };
+      }
+
+      return {};
     })
-    .catch(err => `Sometheing went wrong - ${err}`)
+    .catch(err => Promise.reject(err));
 
 // Send a request to Bittrex for user balance and return an object
-const getUserBalance = (apiKey, apiSecret) =>
+const getUserBalance = (apikey, apisecret) =>
   new Promise((resolve, reject) => {
     bittrex.options({
-      'apikey' : apiKey,
-      'apisecret' : apiSecret
-    })
+      apikey,
+      apisecret,
+    });
 
     bittrex.getbalances((data, err) => {
-      if (err === null)
-        resolve(data.result)
-      else
-        reject(err)
-    })
-  })
-
-// All the magic is here!
-const parseBalance = balance =>
-  new Promise((resolve, reject) => {
-    const coins = balanceToCoinArray(balance)
-    const coinsRate = coins.map(coin => getCoinToBTC(coin))
-
-    getUSDTforBTC()
-      .then(BTCrate => {
-        Promise.all(coinsRate)
-          .then(rates =>
-            rates
-              .reduce((acc, rate, index) => {
-                acc[`${coins[index]}`] = rate
-                return acc
-              }, {})
-          )
-          .then(coinsToBTC => {
-            coinsToBTC['BTC'] = 1
-
-            let summaryBTC = 0
-            let summaryUSDT = 0
-
-            const coinsBalances = balance.reduce((acc, coin) => {
-              if (coin.Balance != 0) {
-                const currency = coin.Currency
-                const amount = coin.Balance
-                const amountBTC = (coin.Balance * coinsToBTC[coin.Currency]).toFixed(4)
-                const amountUSDT = (BTCrate * amountBTC).toFixed(2)
-
-                summaryBTC += +amountBTC
-                summaryUSDT += +amountUSDT
-
-                return acc += `${currency}: ${amount}\n${amountBTC} BTC\n${amountUSDT} USDT\n\n`
-              } else return acc
-            }, '')
-
-            resolve(coinsBalances + `Total:\n${summaryBTC.toFixed(4)} BTC\n${summaryUSDT.toFixed(2)} USDT`)
-          })
-          .catch(err => reject(err))
-      })
-      .catch(err => reject(err))
-  })
+      if (err === null) {
+        resolve(data.result);
+      } else {
+        reject(err);
+      }
+    });
+  });
 
 // Parse user balance object and return array of coin literals (['BCC', 'ETH', ...])
 const balanceToCoinArray = balance =>
   balance
     .map(coin => coin.Currency)
-    .filter(coin => coin != 'BTC')
+    .filter(coin => coin !== 'BTC');
 
 // Get last tick (price in BTC) of chosen coin
 const getCoinToBTC = coin =>
-  new Promise(resolve => {
-    const url = `https://bittrex.com/api/v1.1/public/getticker?market=BTC-${coin}`
-
-    bittrex.sendCustomRequest(url, (data, err) => {
-      resolve(data.result.Last)
-    })
-  })
+  new Promise((resolve, reject) =>
+    bittrex.sendCustomRequest(`https://bittrex.com/api/v1.1/public/getticker?market=BTC-${coin}`, (data, err) => {
+      if (err === null) {
+        resolve(data.result.Last);
+      } else {
+        reject(err);
+      }
+    }));
 
 // Get last USDT-BTC price
 const getUSDTforBTC = () =>
   new Promise((resolve, reject) => {
-    const url = `https://bittrex.com/api/v1.1/public/getticker?market=USDT-BTC`
+    const url = 'https://bittrex.com/api/v1.1/public/getticker?market=USDT-BTC';
 
     bittrex.sendCustomRequest(url, (data, err) => {
-      if (err == null)
-        resolve(data.result.Last)
-      else
-        reject(err)
-    })
-  })
+      if (err == null) {
+        resolve(data.result.Last);
+      } else {
+        reject(err);
+      }
+    });
+  });
+
+// Magic!
+const parseBalance = (balance) => {
+  const coins = balanceToCoinArray(balance);
+  const coinsRate = coins.map(coin => getCoinToBTC(coin));
+
+  return getUSDTforBTC()
+    .then(BTCrate =>
+      Promise.all(coinsRate)
+        .then(rates =>
+          rates
+            .reduce((acc, rate, index) => {
+              acc[`${coins[index]}`] = rate;
+              return acc;
+            }, {}))
+        .then((coinsToBTC) => {
+          const coinsRateToBTC = coinsToBTC;
+          coinsRateToBTC.BTC = 1;
+
+          const summaryBTC = balance
+            .reduce((acc, coin) => {
+              if (coin.Balance !== 0) {
+                return acc + +(coin.Balance * coinsRateToBTC[coin.Currency]).toFixed(4);
+              }
+              return acc;
+            }, 0);
+
+          const summaryUSDT = balance
+            .reduce((acc, coin) => {
+              if (coin.Balance !== 0) {
+                const amountBTC = (coin.Balance * coinsRateToBTC[coin.Currency]).toFixed(4);
+                return acc + +(BTCrate * amountBTC).toFixed(2);
+              }
+              return acc;
+            }, 0);
+
+          const coinsBalances = balance
+            .filter(coin => coin.Balance !== 0)
+            .map((coin) => {
+              const currency = coin.Currency;
+              const amount = coin.Balance;
+              const amountBTC = (coin.Balance * coinsRateToBTC[coin.Currency]).toFixed(4);
+              const amountUSDT = (BTCrate * amountBTC).toFixed(2);
+
+              return `${currency}: ${amount}\n${amountBTC} BTC\n${amountUSDT} USDT`;
+            })
+            .join('\n\n');
+
+          return `${coinsBalances}\n\nTotal:\n${summaryBTC.toFixed(4)} BTC\n${summaryUSDT.toFixed(2)} USDT`;
+        })
+        .catch(err => Promise.reject(err)))
+    .catch(err => Promise.reject(err));
+};
 
 //
 // ---------- BOT COMMANDS ----------
 //
 
 // /start
-bot.onText(/\/start/, msg => {
+bot.onText(/\/start/, msg =>
   bot.sendMessage(
     msg.from.id,
-    'Hello, buddy!\nUse /help and enjoy'
-  )
-})
+    'Hello, buddy!\nUse /help and enjoy',
+  ));
 
 // /help
-bot.onText(/\/help/, msg => {
+bot.onText(/\/help/, msg =>
   bot.sendMessage(
     msg.from.id,
-    help.map(command => `${command}\n`).join('')
-  )
-})
+    help.join('\n'),
+  ));
 
 // /reg
 bot.onText(/\/reg (.+) (.+)/, (msg, match) =>
   registerUser(String(msg.from.id), String(match[1]), String(match[2]))
-    .then(response => {
+    .then(response =>
       bot.sendMessage(
         msg.from.id,
-        response
-      )
-    })
-)
+        response,
+      ))
+    .catch(err =>
+      bot.sendMessage(
+        msg.from.id,
+        `Sometheing went wrong - ${err}`,
+      )));
 
 // /me
 bot.onText(/\/me/, msg =>
   bot.sendMessage(
     msg.from.id,
-    msg.from.id
-  )
-)
+    msg.from.id,
+  ));
 
 // /users
-bot.onText(/\/users/, msg => {
-  if (msg.from.id == MY_USER_ID)
+bot.onText(/\/users/, (msg) => {
+  if (msg.from.id === MY_USER_ID) {
     DBUsersCount()
       .then(count =>
         bot.sendMessage(
           msg.from.id,
-          `Total users: ${count}`
-        )
-      )
+          `Total users: ${count}`,
+        ))
       .catch(err =>
         bot.sendMessage(
           msg.from.id,
-          `Sometheing went wrong - ${err}`
-        )
-      )
-})
+          `Sometheing went wrong - ${err}`,
+        ));
+  }
+});
 
 // /keys
 bot.onText(/\/keys/, msg =>
   showKeys(String(msg.from.id))
-    .then(response => {
-      if (typeof response == 'string')
+    .then((userObject) => {
+      if (userObject.apiKey && userObject.apiSecret) {
         bot.sendMessage(
           msg.from.id,
-          response
-        )
-      else if (response.apiKey && response.apiSecret)
+          `Your apiKey: ${userObject.apiKey}\n\nYour apiSecret: ${userObject.apiSecret}`,
+        );
+      } else {
         bot.sendMessage(
           msg.from.id,
-          `Your apiKey: ${response.apiKey}\n\nYour apiSecret: ${response.apiSecret}`
-        )
-      else
-        bot.sendMessage(
-          msg.from.id,
-          'You should register your keys first!\n\n/howto may be helpful'
-        )
+          'You should register your keys first!\n\n/howto may be helpful',
+        );
+      }
     })
-)
+    .catch(err =>
+      bot.sendMessage(
+        msg.from.id,
+        `Sometheing went wrong - ${err}`,
+      )));
 
 // /balance
-bot.onText(/\/balance/, msg => {
-  const userId = msg.from.id
+bot.onText(/\/balance/, (msg) => {
+  const userId = msg.from.id;
 
   showKeys(String(userId))
-    .then(response => {
-      if (typeof response == 'string')
-        bot.sendMessage(
-          userId,
-          response
-        )
-      else if (response.apiKey && response.apiSecret)
-        getUserBalance(response.apiKey, response.apiSecret)
+    .then((userObject) => {
+      if (userObject.apiKey && userObject.apiSecret) {
+        getUserBalance(userObject.apiKey, userObject.apiSecret)
           .then(messyBalance =>
             parseBalance(messyBalance)
               .then(parsedBalance =>
                 bot.sendMessage(
                   userId,
-                  parsedBalance
-                )
-              )
+                  parsedBalance,
+                ))
               .catch(err =>
                 bot.sendMessage(
                   userId,
-                  `Sometheing went wrong - ${err}`
-                )
-              )
-          )
+                  `Sometheing went wrong - ${err}`,
+                )))
           .catch(err =>
             bot.sendMessage(
               userId,
-              `Sometheing went wrong - ${err}`
-            )
-          )
-      else
+              `Sometheing went wrong - ${err}`,
+            ));
+      } else {
         bot.sendMessage(
           userId,
-          'You should register your keys first!\n\n/howto may be helpful'
-        )
+          'You should register your keys first!\n\n/howto may be helpful',
+        );
+      }
     })
-})
+    .catch(err =>
+      bot.sendMessage(
+        userId,
+        `Sometheing went wrong - ${err}`,
+      ));
+});
 
 // /btc
 bot.onText(/\/btc/, msg =>
@@ -343,16 +355,13 @@ bot.onText(/\/btc/, msg =>
     .then(result =>
       bot.sendMessage(
         msg.from.id,
-        `1 BTC = ${result} USDT`
-      )
-    )
+        `1 BTC = ${result} USDT`,
+      ))
     .catch(err =>
       bot.sendMessage(
         msg.from.id,
-        `Sometheing went wrong - ${err}`
-      )
-    )
-)
+        `Sometheing went wrong - ${err}`,
+      )));
 
 // /clear
 bot.onText(/\/clear/, msg =>
@@ -360,33 +369,29 @@ bot.onText(/\/clear/, msg =>
     .then(() =>
       bot.sendMessage(
         msg.from.id,
-        'Your keys were successfully removed'
-      )
-    )
+        'Your keys were successfully removed',
+      ))
     .catch(err =>
       bot.sendMessage(
         msg.from.id,
-        `Sometheing went wrong - ${err}`
-      )
-    )
-)
+        `Sometheing went wrong - ${err}`,
+      )));
 
 // /howto
-bot.onText(/\/howto/, msg => {
-  const userId = msg.from.id
-  const step1 = 'data/2fa.png'
-  const step2 = 'data/keys.png'
-  const step3 = 'data/reg.png'
+bot.onText(/\/howto/, (msg) => {
+  const userId = msg.from.id;
+  const step1 = 'data/2fa.png';
+  const step2 = 'data/keys.png';
+  const step3 = 'data/reg.png';
 
-  bot.sendPhoto(userId, step1)
-  setTimeout(() => bot.sendPhoto(userId, step2), 200)
-  setTimeout(() => bot.sendPhoto(userId, step3), 400)
-})
+  bot.sendPhoto(userId, step1);
+  setTimeout(() => bot.sendPhoto(userId, step2), 200);
+  setTimeout(() => bot.sendPhoto(userId, step3), 400);
+});
 
 // /donate
 bot.onText(/\/donate/, msg =>
   bot.sendMessage(
     msg.from.id,
-    DONATE_TO
-  )
-)
+    DONATE_TO,
+  ));
