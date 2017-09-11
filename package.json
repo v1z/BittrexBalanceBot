@@ -9,6 +9,9 @@
     "node.bittrex.api": "^0.5.1"
   },
   "devDependencies": {
+    "eslint": "^4.6.0",
+    "eslint-config-airbnb-base": "^12.0.0",
+    "eslint-plugin-import": "^2.7.0",
     "mongodb": "^2.2.31",
     "node-telegram-bot-api": "^0.28.0",
     "node.bittrex.api": "^0.5.1"
