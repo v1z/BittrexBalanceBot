@@ -25,67 +25,39 @@ const help = [
 //
 
 // connect to DB
-const DBConnect = (uri = URI) =>
-  MongoClient.connect(uri);
+let database;
+
+MongoClient.connect(URI)
+  .then((db) => { database = db.collection('users'); });
 
 // Insert user with 2 keys into the database
 const DBInsertUser = (userId, apiKey, apiSecret) =>
-  DBConnect()
-    .then(database =>
-      database.collection('users')
-        .insert({
-          user: userId,
-          apiKey,
-          apiSecret,
-        })
-        .then(() => database.close())
-        .catch((err) => {
-          database.close();
-          return Promise.reject(err);
-        }));
+  database
+    .insert({
+      user: userId,
+      apiKey,
+      apiSecret,
+    })
+    .catch(err => Promise.reject(err));
 
 // Remove user from DB by UserId (drop user keys - allowing him to register new keys)
 const DBRemoveUser = userId =>
-  DBConnect()
-    .then(database =>
-      database.collection('users')
-        .deleteOne({ user: userId })
-        .then(() => database.close())
-        .catch((err) => {
-          database.close();
-          return Promise.reject(err);
-        }));
+  database
+    .deleteOne({ user: userId })
+    .catch(err => Promise.reject(err));
 
 // Return user keys or false if they weren't provided
 const DBFindUser = userId =>
-  DBConnect()
-    .then(database =>
-      database.collection('users')
-        .find({ user: userId })
-        .toArray()
-        .then((user) => {
-          database.close();
-          return user;
-        })
-        .catch((err) => {
-          database.close();
-          return Promise.reject(err);
-        }));
+  database
+    .find({ user: userId })
+    .toArray()
+    .catch(err => Promise.reject(err));
 
 // Show how many users provided their keys
 const DBUsersCount = () =>
-  DBConnect()
-    .then(database =>
-      database.collection('users')
-        .count()
-        .then((count) => {
-          database.close();
-          return count;
-        })
-        .catch((err) => {
-          database.close();
-          return Promise.reject(err);
-        }));
+  database
+    .count()
+    .catch(err => Promise.reject(err));
 
 //
 // ---------- LOGIC METHODS ----------
@@ -120,8 +92,9 @@ const showKeys = userId =>
           apiSecret: user[0].apiSecret,
         };
       }
-
-      return {};
+      /* eslint-disable prefer-promise-reject-errors */
+      return Promise.reject('No user in DB');
+      /* eslint-enable prefer-promise-reject-errors */
     });
 
 // Send a request to Bittrex for user balance and return an object
@@ -270,11 +243,15 @@ bot.onText(/\/keys/, (msg) => {
     .then((userObject) => {
       if (userObject.apiKey && userObject.apiSecret) {
         sendResponse(userId)(`Your apiKey: ${userObject.apiKey}\n\nYour apiSecret: ${userObject.apiSecret}`);
-      } else {
-        sendResponse(userId)('You should register your keys first!\n\n/howto may be helpful');
       }
     })
-    .catch(sendError(userId));
+    .catch((err) => {
+      if (err === 'No user in DB') {
+        sendResponse(userId)('You should register your keys first!\n\n/howto may be helpful');
+      } else {
+        sendError(userId)(err);
+      }
+    });
 });
 
 // /balance
@@ -282,17 +259,17 @@ bot.onText(/\/balance/, (msg) => {
   const userId = msg.from.id;
 
   showKeys(userId)
-    .then((userObject) => {
-      if (userObject.apiKey && userObject.apiSecret) {
-        getUserBalance(userObject.apiKey, userObject.apiSecret)
-          .then(messyBalance => parseBalance(messyBalance))
-          .then(sendResponse(userId))
-          .catch(sendError(userId));
-      } else {
+    .then(userObject =>
+      getUserBalance(userObject.apiKey, userObject.apiSecret)
+        .then(messyBalance => parseBalance(messyBalance))
+        .then(sendResponse(userId)))
+    .catch((err) => {
+      if (err === 'No user in DB') {
         sendResponse(userId)('You should register your keys first!\n\n/howto may be helpful');
+      } else {
+        sendError(userId)(err);
       }
-    })
-    .catch(sendError(userId));
+    });
 });
 
 // /btc
