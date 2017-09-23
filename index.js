@@ -27,36 +27,46 @@ const help = [
 // connect to DB
 let database;
 
-MongoClient.connect(URI)
-  .then((db) => { database = db.collection('users'); });
+const DBConnect = (uri = URI) => {
+  if (database) {
+    return Promise.resolve(database);
+  }
+
+  return MongoClient.connect(uri)
+    .then((db) => {
+      database = db.collection('users');
+      return Promise.resolve(db.collection('users'));
+    });
+};
 
 // Insert user with 2 keys into the database
 const DBInsertUser = (userId, apiKey, apiSecret) =>
-  database
-    .insert({
+  DBConnect()
+    .then(db => db.insert({
       user: userId,
       apiKey,
       apiSecret,
-    })
+    }))
     .catch(err => Promise.reject(err));
 
 // Remove user from DB by UserId (drop user keys - allowing him to register new keys)
 const DBRemoveUser = userId =>
-  database
-    .deleteOne({ user: userId })
+  DBConnect()
+    .then(db => db.deleteOne({ user: userId }))
     .catch(err => Promise.reject(err));
 
 // Return user keys or false if they weren't provided
 const DBFindUser = userId =>
-  database
-    .find({ user: userId })
-    .toArray()
+  DBConnect()
+    .then(db => db
+      .find({ user: userId })
+      .toArray())
     .catch(err => Promise.reject(err));
 
 // Show how many users provided their keys
 const DBUsersCount = () =>
-  database
-    .count()
+  DBConnect()
+    .then(db => db.count())
     .catch(err => Promise.reject(err));
 
 //
