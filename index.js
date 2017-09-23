@@ -25,18 +25,17 @@ const help = [
 //
 
 // connect to DB
-let database;
+let connectPromise;
 
 const DBConnect = (uri = URI) => {
-  if (database) {
-    return Promise.resolve(database);
+  if (connectPromise) {
+    return connectPromise;
   }
 
-  return MongoClient.connect(uri)
-    .then((db) => {
-      database = db.collection('users');
-      return Promise.resolve(db.collection('users'));
-    });
+  connectPromise = MongoClient.connect(uri)
+    .then(db => db.collection('users'));
+
+  return connectPromise;
 };
 
 // Insert user with 2 keys into the database
