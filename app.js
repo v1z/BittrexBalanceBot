@@ -19,17 +19,14 @@ const help = [
   '/donate - show the BTC wallet where you can send your donations',
 ];
 
-const sendError = userId => err =>
-  bot.sendMessage(
-    userId,
-    `Sometheing went wrong - ${err}`,
-  );
-
 const sendResponse = userId => response =>
   bot.sendMessage(
     userId,
     response,
   );
+
+const sendError = userId => err =>
+  sendResponse(userId)(`Sometheing went wrong - ${err}`);
 
 // /start
 bot.onText(/\/start/, msg => sendResponse(msg.from.id)('Hello, buddy!\nUse /help and enjoy'));
@@ -60,6 +57,15 @@ bot.onText(/\/users/, (msg) => {
   }
 });
 
+
+const handleNoUserInDBError = userId => (err) => {
+  if (err === 'No user in DB') {
+    sendResponse(userId)('You should register your keys first!\n\n/howto may be helpful');
+  } else {
+    sendError(userId)(err);
+  }
+};
+
 // /keys
 bot.onText(/\/keys/, (msg) => {
   const userId = msg.from.id;
@@ -70,13 +76,7 @@ bot.onText(/\/keys/, (msg) => {
         sendResponse(userId)(`Your apiKey: ${userObject.apiKey}\n\nYour apiSecret: ${userObject.apiSecret}`);
       }
     })
-    .catch((err) => {
-      if (err === 'No user in DB') {
-        sendResponse(userId)('You should register your keys first!\n\n/howto may be helpful');
-      } else {
-        sendError(userId)(err);
-      }
-    });
+    .catch(handleNoUserInDBError(userId));
 });
 
 // /balance
@@ -87,13 +87,7 @@ bot.onText(/\/balance/, (msg) => {
     .then(userObject =>
       Bittrex.getUserBalance(userObject.apiKey, userObject.apiSecret)
         .then(sendResponse(userId)))
-    .catch((err) => {
-      if (err === 'No user in DB') {
-        sendResponse(userId)('You should register your keys first!\n\n/howto may be helpful');
-      } else {
-        sendError(userId)(err);
-      }
-    });
+    .catch(handleNoUserInDBError(userId));
 });
 
 // /btc
