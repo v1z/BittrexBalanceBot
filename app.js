@@ -2,9 +2,11 @@ const TelegramBot = require('node-telegram-bot-api');
 const Database = require('./db');
 const Bittrex = require('./bittrex');
 
-const MY_USER_ID = 1234567;
-const TOKEN = '1234567';
-const DONATE_TO = '1234567';
+const { config } = require('./config');
+
+const TOKEN = config.required.botToken;
+const MY_USER_ID = config.optional.telegramUserID;
+const DONATE_TO = config.optional.donations;
 
 const bot = new TelegramBot(TOKEN, { polling: true });
 
@@ -23,6 +25,14 @@ const sendResponse = userId => response =>
   bot.sendMessage(
     userId,
     response,
+    {
+      reply_markup: {
+        keyboard: [
+          ['/balance', '/help'],
+        ],
+        resize_keyboard: true,
+      },
+    },
   );
 
 const sendError = userId => err =>
@@ -129,4 +139,5 @@ bot.onText(/\/howto/, (msg) => {
 });
 
 // /donate
-bot.onText(/\/donate/, msg => sendResponse(msg.from.id)(DONATE_TO));
+bot.onText(/\/donate/, msg =>
+  DONATE_TO.map(way => sendResponse(msg.from.id)(`${way.coin}\n${way.wallet}`)));

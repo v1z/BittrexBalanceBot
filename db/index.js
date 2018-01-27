@@ -1,6 +1,7 @@
 const { MongoClient } = require('mongodb');
+const { config } = require('../config.js');
 
-const URI = '1234567';
+const URI = config.required.mongoURI;
 
 // Connect function
 let connectPromise;

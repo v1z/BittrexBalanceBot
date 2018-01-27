@@ -1,7 +1,5 @@
 /node_modules
 npm-debug.log
 .DS_Store
-package-lock.json
 
-users.js
-values.js
+configHeroku.js

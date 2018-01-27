@@ -1,8 +1,8 @@
 {
-  "name": "BittrexBalanceBot",
+  "name": "bittrex-balance-bot",
   "version": "1.0.0",
-  "description": "Telegram bot showing your Bittrex balance",
-  "main": "index.js",
+  "description": "Telegram bot for showing your Bittrex balance",
+  "main": "app.js",
   "dependencies": {
     "mongodb": "^2.2.31",
     "node-telegram-bot-api": "^0.28.0",
@@ -17,8 +17,7 @@
     "node.bittrex.api": "^0.5.1"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "start": "node app.js"
   },
   "engines": {
     "node": "8.2.1"
