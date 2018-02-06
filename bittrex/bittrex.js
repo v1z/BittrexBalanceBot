@@ -1,6 +1,10 @@
 const bittrex = require('node.bittrex.api');
 
-// Parse user balance object and return array of coin literals (['BCC', 'ETH', ...])
+// Remove coins with Balance: 0 from balance
+const filterEmptyCoins = balance =>
+  balance.filter(({ Balance }) => Balance !== 0);
+
+// Parse user balance object and return array of coin names (['BCC', 'ETH', ...])
 const balanceToCoinArray = balance =>
   balance
     .map(coin => coin.Currency)
@@ -30,36 +34,36 @@ const coinValueToBTC = (coins, rate) =>
 
 // Magic!
 const parseBalance = (balance) => {
-  const filteredBalance = balance.filter(({ Balance }) => Balance !== 0);
+  // drop out coins with zero amount
+  const filteredBalance = filterEmptyCoins(balance);
 
+  // get array of coin names ['BCC', 'ETH', ...]
   const coins = balanceToCoinArray(filteredBalance);
-  const coinsRate = coins.map(coin => getCoinToBTC(coin));
+  // get array of coin rates to BTC [0.123, 0.034234, ...]
+  const coinsRate = coins.map(getCoinToBTC);
 
   return getUSDTforBTC()
-    .then(BTCrate =>
+    .then(BTCtoUSDTrate =>
       Promise.all(coinsRate)
-        .then(rates =>
-          rates
-            .reduce((acc, rate, index) => {
-              acc[coins[index]] = rate;
-              return acc;
-            }, {}))
-        .then((coinsToBTC) => {
-          const rates = coinsToBTC;
+        .then(rates => rates.reduce((acc, rate, index) => ({ ...acc, [coins[index]]: rate }), {}))
+        .then((rates) => {
+          /* eslint-disable no-param-reassign */
+          // add 'BTC': 1 to coin rates
           rates.BTC = 1;
+          /* eslint-enable no-param-reassign */
 
           const summaryBTC = filteredBalance
-            .reduce((acc, { Currency: currency, Balance: amount }) =>
-              acc + coinValueToBTC(amount, rates[currency]), 0);
+            .reduce((acc, { Currency, Balance }) =>
+              acc + coinValueToBTC(Balance, rates[Currency]), 0);
 
-          const summaryUSDT = summaryBTC * BTCrate;
+          const summaryUSDT = summaryBTC * BTCtoUSDTrate;
 
           const coinsBalances = filteredBalance
-            .map(({ Currency: currency, Balance: amount }) => {
-              const amountBTC = coinValueToBTC(amount, rates[currency]);
-              const amountUSDT = (BTCrate * amountBTC).toFixed(2);
+            .map(({ Currency, Balance }) => {
+              const amountBTC = coinValueToBTC(Balance, rates[Currency]);
+              const amountUSDT = (BTCtoUSDTrate * amountBTC).toFixed(2);
 
-              return `${currency}: ${amount}\n${amountBTC} BTC\n${amountUSDT} USDT`;
+              return `${Currency}: ${Balance}\n${amountBTC} BTC\n${amountUSDT} USDT`;
             })
             .join('\n\n');
 

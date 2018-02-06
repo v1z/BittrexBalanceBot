@@ -1,6 +1,6 @@
 const TelegramBot = require('node-telegram-bot-api');
-const Database = require('./db');
-const Bittrex = require('./bittrex');
+const Database = require('./database/database');
+const Bittrex = require('./bittrex/bittrex');
 
 const { config } = require('./config');
 
@@ -18,7 +18,7 @@ const help = [
   '/keys - show your keys pair',
   '/balance - show your Bittrex balance',
   '/btc - show last USDT price for BTC',
-  '/donate - show the BTC wallet where you can send your donations',
+  '/donate - show wallets where you can send your donations',
 ];
 
 const sendResponse = userId => response =>
