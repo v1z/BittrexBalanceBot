@@ -4,9 +4,10 @@ const Bittrex = require('./bittrex/bittrex');
 
 const { config } = require('./config');
 
-const TOKEN = config.required.botToken;
-const MY_USER_ID = config.optional.telegramUserID;
-const DONATE_TO = config.optional.donations;
+const {
+  required: { botToken: TOKEN },
+  optional: { telegramUserID: MY_USER_ID, donations: DONATE_TO },
+} = config;
 
 const bot = new TelegramBot(TOKEN, { polling: true });
 
