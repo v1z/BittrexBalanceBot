@@ -45,21 +45,17 @@ bot.onText(/\/start/, msg => sendResponse(msg.from.id)('Hello, buddy!\nUse /help
 bot.onText(/\/help/, msg => sendResponse(msg.from.id)(help.join('\n')));
 
 // /reg
-bot.onText(/\/reg (.+) (.+)/, (msg, match) => {
-  const userId = msg.from.id;
-
+bot.onText(/\/reg (.+) (.+)/, ({ from: { id: userId } }, match) => {
   Database.registerUser(userId, String(match[1]), String(match[2]))
     .then(sendResponse(userId))
     .catch(sendError(userId));
 });
 
 // /me
-bot.onText(/\/me/, msg => sendResponse(msg.from.id)(msg.from.id));
+bot.onText(/\/me/, ({ from: { id: userId } }) => sendResponse(userId)(userId));
 
 // /users
-bot.onText(/\/users/, (msg) => {
-  const userId = msg.from.id;
-
+bot.onText(/\/users/, ({ from: { id: userId } }) => {
   if (userId === MY_USER_ID) {
     Database.usersCount()
       .then(count => sendResponse(userId)(`Total users: ${count}`))
@@ -67,52 +63,38 @@ bot.onText(/\/users/, (msg) => {
   }
 });
 
-
-const handleNoUserInDBError = userId => (err) => {
-  if (err === 'No user in DB') {
-    sendResponse(userId)('You should register your keys first!\n\n/howto may be helpful');
-  } else {
-    sendError(userId)(err);
-  }
-};
+const handleNoUserInDBError = userId => err => (
+  err === 'No user in DB'
+    ? sendResponse(userId)('You should register your keys first!\n\n/howto may be helpful')
+    : sendError(userId)(err));
 
 // /keys
-bot.onText(/\/keys/, (msg) => {
-  const userId = msg.from.id;
-
+bot.onText(/\/keys/, ({ from: { id: userId } }) => {
   Database.showKeys(userId)
-    .then((userObject) => {
-      if (userObject.apiKey && userObject.apiSecret) {
-        sendResponse(userId)(`Your apiKey: ${userObject.apiKey}\n\nYour apiSecret: ${userObject.apiSecret}`);
+    .then(({ apiKey, apiSecret }) => {
+      if (apiKey && apiSecret) {
+        sendResponse(userId)(`Your apiKey: ${apiKey}\n\nYour apiSecret: ${apiSecret}`);
       }
     })
     .catch(handleNoUserInDBError(userId));
 });
 
 // /balance
-bot.onText(/\/balance/, (msg) => {
-  const userId = msg.from.id;
-
+bot.onText(/\/balance/, ({ from: { id: userId } }) =>
   Database.showKeys(userId)
-    .then(userObject =>
-      Bittrex.getUserBalance(userObject.apiKey, userObject.apiSecret)
+    .then(({ apiKey, apiSecret }) =>
+      Bittrex.getUserBalance(apiKey, apiSecret)
         .then(sendResponse(userId)))
-    .catch(handleNoUserInDBError(userId));
-});
+    .catch(handleNoUserInDBError(userId)));
 
 // /btc
-bot.onText(/\/btc/, (msg) => {
-  const userId = msg.from.id;
-
+bot.onText(/\/btc/, ({ from: { id: userId } }) =>
   Bittrex.getUSDTforBTC()
     .then(result => sendResponse(userId)(`1 BTC = ${result} USDT`))
-    .catch(sendError(userId));
-});
+    .catch(sendError(userId)));
 
 // /clear
-bot.onText(/\/clear/, (msg) => {
-  const userId = msg.from.id;
-
+bot.onText(/\/clear/, ({ from: { id: userId } }) =>
   Database.findUser(userId)
     .then((user) => {
       if (user.length === 1) {
@@ -122,13 +104,10 @@ bot.onText(/\/clear/, (msg) => {
       } else {
         sendResponse(userId)('You are not registered your keys yet');
       }
-    });
-});
+    }));
 
 // /howto
-bot.onText(/\/howto/, (msg) => {
-  const userId = msg.from.id;
-
+bot.onText(/\/howto/, ({ from: { id: userId } }) => {
   const step1 = 'images/2fa.png';
   const step2 = 'images/keys.png';
   const step3 = 'images/reg.png';
@@ -139,5 +118,5 @@ bot.onText(/\/howto/, (msg) => {
 });
 
 // /donate
-bot.onText(/\/donate/, msg =>
-  DONATE_TO.map(way => sendResponse(msg.from.id)(`${way.coin}\n${way.wallet}`)));
+bot.onText(/\/donate/, ({ from: { id: userId } }) =>
+  DONATE_TO.map(({ coin, wallet }) => sendResponse(userId)(`${coin}\n${wallet}`)));
