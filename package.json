@@ -20,7 +20,7 @@
     "start": "node app.js"
   },
   "engines": {
-    "node": "8.2.1"
+    "node": "8.9.4"
   },
   "author": "v1z",
   "license": "MIT"
